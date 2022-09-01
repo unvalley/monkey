@@ -6,7 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "monkey"
-path = "lib/monkey.rs"
+name = "monkey_lib"
+path = "lib/mod.rs"
+
+[[bin]]
+name = "monkey_repl"
+path = "repl/main.rs"
 
 [dependencies]
+rustyline = "10.0.0"
+
