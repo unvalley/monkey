@@ -2,14 +2,30 @@
 pub enum Token {
     Illegal,
     EOF,
+
+    // identifier and literal
     Ident(String),
     StringLiteral(String),
     IntLiteral(i64),
     BoolLitral(bool),
+    // 
     Assign,
     Plus,
+    Minus,
+    Bang,
+    Asterisk,
+    Slash,
+
+    /// <
+    LT,
+    /// >
+    GT,
+
+    // delimiter
     Comma,
+    Colon,
     SemiColon,
+
     // punctuations
     /// "("
     LParen,
@@ -23,6 +39,13 @@ pub enum Token {
     Function,
     Let,
     Return,
+    True,
+    False,
+    If,
+    Else,
+
+    Eq,
+    NotEq
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

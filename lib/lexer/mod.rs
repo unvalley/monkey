@@ -42,9 +42,9 @@ impl Lexer {
         (b'0'..=b'9').contains(&ch)
     }
 
-    fn read_int(&mut self, ch: u8) -> i64 {
+    fn read_int(&mut self) -> i64 {
         let position = self.position;
-        while self.is_digit(ch) {
+        while self.is_digit(self.ch) {
             self.read_char()
         }
         let int = &self.input[position..self.position];
@@ -69,8 +69,30 @@ impl Lexer {
         self.skip_whitespace();
 
         let tok = match self.ch {
-            b'=' => Token::Assign,
+            b'=' => {
+                if let b'=' = self.peek_char() {
+                    self.read_char();
+                    Token::Eq
+                } else {
+                    Token::Assign
+                }
+            },
             b'+' => Token::Plus,
+            b'-' => Token::Minus,
+            b'!' => {
+                if let b'=' = self.peek_char() {
+                    self.read_char();
+                    Token::NotEq
+                } else {
+                    Token::Bang
+                }
+            },
+            b'/' => Token::Slash,
+            b'*' => Token::Asterisk,
+            b'<' => Token::LT,
+            b'>' => Token::GT,
+            b';' => Token::SemiColon,
+            b',' => Token::Comma,
             b'(' => Token::LParen,
             b')' => Token::RParen,
             b'{' => Token::LBrace,
@@ -78,21 +100,34 @@ impl Lexer {
             _ => {
                 if self.is_letter(self.ch) {
                     let literal = self.read_identifier();
-                    match literal.as_str() {
+                    return match literal.as_str() {
                         "fn" => Token::Function,
                         "let" => Token::Let,
+                        "if" => Token::If,
+                        "else" => Token::Else,
+                        "return" => Token::Return,
+                        "true" => Token::True,
+                        "false" => Token::False,
                         _ => Token::Ident(literal)
                     }
                 } else if self.is_digit(self.ch) {
-                    let int = self.read_int(self.ch);
-                    Token::IntLiteral(int)
-                } else {
-                    Token::Illegal
+                    let int = self.read_int();
+                    return Token::IntLiteral(int)
                 }
+                Token::Illegal
             },
         };
         self.read_char();
         tok
+    }
+
+    /// want to peek only. pre-read
+    fn peek_char(&mut self) -> u8 {
+        if self.read_position >= self.input.len() {
+            0
+        } else {
+            self.input.as_bytes()[self.read_position]
+        }
     }
 }
 
@@ -109,6 +144,8 @@ mod tests {
             x + y;
         };
         let result = add(five, ten);
+        !-/*5;
+        5 < 10 > 5;
         ";
         let expected_tokens = vec![
             Token::Let,
@@ -141,11 +178,24 @@ mod tests {
             Token::Ident(String::from("result")),
             Token::Assign,
             Token::Ident(String::from("add")),
-            Token::LBrace,
+            Token::LParen,
             Token::Ident(String::from("five")),
             Token::Comma,
             Token::Ident(String::from("ten")),
+            Token::RParen,
             Token::SemiColon,
+            Token::Bang,
+            Token::Minus,
+            Token::Slash,
+            Token::Asterisk,
+            Token::IntLiteral(5),
+            Token::SemiColon,
+            Token::IntLiteral(5),
+            Token::LT,
+            Token::IntLiteral(10),
+            Token::GT,
+            Token::IntLiteral(5),
+            Token::SemiColon
         ];
 
         let mut l = Lexer::new(input.to_string());
