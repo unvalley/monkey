@@ -15,4 +15,5 @@ path = "repl/main.rs"
 
 [dependencies]
 rustyline = "10.0.0"
+thiserror = "1.0.33"
 

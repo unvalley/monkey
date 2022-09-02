@@ -1,4 +1,4 @@
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
     Illegal,
     EOF,
@@ -8,12 +8,17 @@ pub enum Token {
     StringLiteral(String),
     IntLiteral(i64),
     BoolLitral(bool),
-    // 
+    /// =
     Assign,
+    /// +
     Plus,
+    /// -
     Minus,
+    /// !
     Bang,
+    /// *
     Asterisk,
+    /// /
     Slash,
 
     /// <
@@ -22,8 +27,11 @@ pub enum Token {
     GT,
 
     // delimiter
+    /// ,
     Comma,
+    /// :
     Colon,
+    /// ;
     SemiColon,
 
     // punctuations
@@ -45,7 +53,7 @@ pub enum Token {
     Else,
 
     Eq,
-    NotEq
+    NotEq,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
