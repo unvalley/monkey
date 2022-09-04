@@ -48,8 +48,15 @@ pub enum Expression {
     Identifier(String),
     String(String),
     Integer(i64),
-    Prefix { operator: Prefix, right: Box<Expression> },
-    Infix { operator: Infix, right: Box<Expression>, left: Box<Expression> }
+    Prefix {
+        operator: Prefix,
+        right: Box<Expression>,
+    },
+    Infix {
+        operator: Infix,
+        right: Box<Expression>,
+        left: Box<Expression>,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
@@ -67,7 +74,7 @@ pub enum Infix {
     Plus,
     Minus,
     Slash,
-    Asterisk
+    Asterisk,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
@@ -86,4 +93,3 @@ pub enum Precedence {
     /// my_function(x)
     Call,
 }
-

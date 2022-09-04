@@ -60,7 +60,7 @@ impl Parser {
         self.next_token();
         Ok(ast::Statement::Let {
             identifier,
-            value: self.parse_expression(ast::Precedence::Lowest)?
+            value: self.parse_expression(ast::Precedence::Lowest)?,
         })
     }
 
@@ -81,14 +81,17 @@ impl Parser {
     }
 
     // precedenceの値は呼び出し側で把握している情報と文脈によって変化する．
-    fn parse_expression(&mut self, precedence: ast::Precedence) -> Result<ast::Expression, MonkeyError> {
+    fn parse_expression(
+        &mut self,
+        precedence: ast::Precedence,
+    ) -> Result<ast::Expression, MonkeyError> {
         let mut left_exp = match &self.current_token {
             token::Token::Identifier(ident) => ast::Expression::Identifier(ident.to_owned()),
             token::Token::StringLiteral(str) => ast::Expression::String(str.to_owned()),
             token::Token::IntLiteral(int) => ast::Expression::Integer(*int),
             token::Token::Bang => self.parse_prefix_expression()?,
             token::Token::Minus => self.parse_prefix_expression()?,
-            _ => return Err(MonkeyError::InvalidToken(self.current_token.clone()))
+            _ => return Err(MonkeyError::InvalidToken(self.current_token.clone())),
         };
 
         // 中間演算子の処理
@@ -97,37 +100,37 @@ impl Parser {
                 token::Token::Plus => {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
-                },
+                }
                 token::Token::Minus => {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
-                },
+                }
                 token::Token::Slash => {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
-                },
+                }
                 token::Token::Asterisk => {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
-                },
+                }
                 token::Token::Eq => {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
-                },
+                }
                 token::Token::NotEq => {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
-                },
+                }
                 token::Token::LT => {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
-                },
+                }
                 token::Token::GT => {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
-                },
+                }
                 // TODO: LParen
-                _ => {return Ok(left_exp)}
+                _ => return Ok(left_exp),
             }
         }
         Ok(left_exp)
@@ -139,14 +142,15 @@ impl Parser {
         let op = match self.current_token {
             token::Token::Bang => ast::Prefix::Bang,
             token::Token::Minus => ast::Prefix::Minus,
-            _ => {
-                return Err(MonkeyError::InvalidToken(self.current_token.clone()))
-            }
+            _ => return Err(MonkeyError::InvalidToken(self.current_token.clone())),
         };
         self.next_token();
         // 優先順位としてPrefix渡す．なぜならこの関数が前置演算子式をparseしている最中だから
         let right = self.parse_expression(ast::Precedence::Prefix)?;
-        Ok(ast::Expression::Prefix { operator: op, right: Box::new(right) })
+        Ok(ast::Expression::Prefix {
+            operator: op,
+            right: Box::new(right),
+        })
     }
 
     fn parse_infix_expression(
@@ -269,7 +273,7 @@ mod tests {
                 panic!("Incorrect expression");
             }
         } else {
-                panic!("Incorrect statement");
+            panic!("Incorrect statement");
         }
     }
 
@@ -309,16 +313,22 @@ mod tests {
             assert_eq!(program.statements.len(), 1);
             let expr = match &program.statements[0] {
                 ast::Statement::Expression(expr) => expr,
-                _ => panic!("programs.statements[0] should be Expression but got {:?}", &program.statements[0])
+                _ => panic!(
+                    "programs.statements[0] should be Expression but got {:?}",
+                    &program.statements[0]
+                ),
             };
             let infix = match expr {
-                ast::Expression::Infix { operator, right: _, left: _ } => operator,
-                _ => panic!("")
+                ast::Expression::Infix {
+                    operator,
+                    right: _,
+                    left: _,
+                } => operator,
+                _ => panic!(""),
             };
             let actual = format!("{:?}", infix);
-            let expected  = *test.get("operator").unwrap();
+            let expected = *test.get("operator").unwrap();
             assert_eq!(actual.as_str(), expected)
         }
     }
-
 }

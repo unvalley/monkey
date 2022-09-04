@@ -70,7 +70,7 @@ impl Token {
             Token::Asterisk => ast::Precedence::Product,
             Token::Slash => ast::Precedence::Product,
             Token::LParen => ast::Precedence::Call,
-            _ => ast::Precedence::Lowest
+            _ => ast::Precedence::Lowest,
         }
     }
 }
