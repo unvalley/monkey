@@ -96,6 +96,7 @@ impl Parser {
 
         // 中間演算子の処理
         while !self.is_peek_token(token::Token::SemiColon) && precedence < self.peek_precedence() {
+            // tokenが見つかったら，対象の中間演算子がcurrent_tokenに来るようにnext_token()を実行
             match self.peek_token {
                 token::Token::Plus => {
                     self.next_token();
