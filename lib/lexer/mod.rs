@@ -97,6 +97,7 @@ impl Lexer {
             b')' => Token::RParen,
             b'{' => Token::LBrace,
             b'}' => Token::RBrace,
+            0 => Token::EOF,
             _ => {
                 if self.is_letter(self.ch) {
                     let literal = self.read_identifier();
@@ -196,6 +197,7 @@ mod tests {
             Token::GT,
             Token::IntLiteral(5),
             Token::SemiColon,
+            Token::EOF
         ];
 
         let mut l = Lexer::new(input.to_string());
