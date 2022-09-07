@@ -197,7 +197,7 @@ mod tests {
             Token::GT,
             Token::IntLiteral(5),
             Token::SemiColon,
-            Token::EOF
+            Token::EOF,
         ];
 
         let mut l = Lexer::new(input.to_string());

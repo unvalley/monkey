@@ -173,7 +173,7 @@ impl Parser {
             token::Token::NotEq => ast::Infix::NotEq,
             token::Token::LT => ast::Infix::LT,
             token::Token::GT => ast::Infix::GT,
-            _ => { return Err(MonkeyError::InvalidToken(self.current_token.clone()))}
+            _ => return Err(MonkeyError::InvalidToken(self.current_token.clone())),
         };
         let precedence = self.current_precedence();
         self.next_token();
@@ -181,7 +181,7 @@ impl Parser {
         Ok(ast::Expression::Infix {
             operator,
             left: Box::new(left_expression),
-            right: Box::new(right_expression)
+            right: Box::new(right_expression),
         })
     }
 
@@ -311,18 +311,18 @@ mod tests {
         struct PrefixExpressionTest {
             input: String,
             operator: ast::Prefix,
-            right: ast::Expression
+            right: ast::Expression,
         }
         let prefix_tests = vec![
             PrefixExpressionTest {
                 input: "!5;".to_string(),
                 operator: ast::Prefix::Bang,
-                right: ast::Expression::Integer(5)
+                right: ast::Expression::Integer(5),
             },
             PrefixExpressionTest {
                 input: "-15;".to_string(),
                 operator: ast::Prefix::Minus,
-                right: ast::Expression::Integer(15)
+                right: ast::Expression::Integer(15),
             },
         ];
         for test in prefix_tests.iter() {
@@ -401,7 +401,7 @@ mod tests {
             let mut p = Parser::new(l);
             let program = p.parse_program().unwrap();
             assert_eq!(program.statements.len(), 1);
-            // TODO: 
+            // TODO:
             // let expr = match &program.statements[0] {
             //     ast::Statement::Expression(expr) => expr,
             //     _ => panic!(
