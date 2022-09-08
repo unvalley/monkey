@@ -95,6 +95,8 @@ impl Parser {
             token::Token::Identifier(ident) => ast::Expression::Identifier(ident.to_owned()),
             token::Token::StringLiteral(str) => ast::Expression::String(str.to_owned()),
             token::Token::IntLiteral(int) => ast::Expression::Integer(*int),
+            token::Token::True => ast::Expression::Boolean(true),
+            token::Token::False => ast::Expression::Boolean(false),
             token::Token::Bang => self.parse_prefix_expression()?,
             token::Token::Minus => self.parse_prefix_expression()?,
             token => return Err(MonkeyError::InvalidToken(token.clone())),
@@ -395,40 +397,50 @@ mod tests {
                 operator: ast::Infix::NotEq,
                 right: ast::Expression::Integer(5),
             },
+            InfixExpressionTest {
+                input: "true==true;".to_string(),
+                left: ast::Expression::Boolean(true),
+                operator: ast::Infix::Eq,
+                right: ast::Expression::Boolean(true),
+            },
+            InfixExpressionTest {
+                input: "true!=false;".to_string(),
+                left: ast::Expression::Boolean(false),
+                operator: ast::Infix::NotEq,
+                right: ast::Expression::Boolean(false),
+            },
+            InfixExpressionTest {
+                input: "false==false;".to_string(),
+                left: ast::Expression::Boolean(false),
+                operator: ast::Infix::Eq,
+                right: ast::Expression::Boolean(false),
+            },
         ];
         for test in infix_tests.iter() {
             let l = Lexer::new(test.input.clone());
             let mut p = Parser::new(l);
             let program = p.parse_program().unwrap();
             assert_eq!(program.statements.len(), 1);
-            // TODO:
-            // let expr = match &program.statements[0] {
-            //     ast::Statement::Expression(expr) => expr,
-            //     _ => panic!(
-            //         "programs.statements[0] should be Expression but got {:?}",
-            //         &program.statements[0]
-            //     ),
-            // };
-            // let infix = match expr {
-            //     ast::Expression::Infix {
-            //         operator,
-            //         right: _,
-            //         left: _,
-            //     } => operator,
-            //     _ => panic!(""),
-            // };
+            // TODO: more strict test
         }
     }
 
-    // #[test]
-    // fn test_operator_precedence_parsing() {
-    //     let tests = vec![("-a*b", "((-a) * b)")];
-    //     for (input, expected) in tests {
-    //         let l = Lexer::new(input.to_string());
-    //         let mut p = Parser::new(l);
-    //         let program = p.parse_program().unwrap();
-    //         let actual = format!("{}", program);
-    //         assert_eq!(actual, expected);
-    //     }
-    // }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        let tests = vec![("-a*b", "((-a)*b)"), ("5+5*10", "(5+(5*10))")];
+        for (input, expected) in tests {
+            let l = Lexer::new(input.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            assert_eq!(program.statements.len(), 1);
+
+            let stmt = &program.statements[0];
+            if let ast::Statement::Expression(expr) = stmt {
+                assert_eq!(&format!("{}", &expr), expected);
+            } else {
+                panic!("Incorrect statement")
+            }
+        }
+    }
 }
