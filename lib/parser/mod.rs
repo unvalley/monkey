@@ -419,4 +419,16 @@ mod tests {
             // };
         }
     }
+
+    // #[test]
+    // fn test_operator_precedence_parsing() {
+    //     let tests = vec![("-a*b", "((-a) * b)")];
+    //     for (input, expected) in tests {
+    //         let l = Lexer::new(input.to_string());
+    //         let mut p = Parser::new(l);
+    //         let program = p.parse_program().unwrap();
+    //         let actual = format!("{}", program);
+    //         assert_eq!(actual, expected);
+    //     }
+    // }
 }

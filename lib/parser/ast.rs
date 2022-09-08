@@ -12,6 +12,21 @@ impl Program {
     }
 }
 
+impl Default for Program {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for stmt in self.statements.iter() {
+            writeln!(f, "{}", stmt)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
 pub struct Node {}
 
@@ -59,10 +74,35 @@ pub enum Expression {
     },
 }
 
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expression::Identifier(value) => write!(f, "{}", &value),
+            Expression::String(value) => write!(f, "{}", &value),
+            Expression::Integer(value) => write!(f, "{}", value),
+            Expression::Prefix { operator, right } => write!(f, "({}{})", operator, right),
+            Expression::Infix {
+                operator,
+                left,
+                right,
+            } => write!(f, "({}{}{})", left, operator, right),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
 pub enum Prefix {
     Bang,
     Minus,
+}
+
+impl fmt::Display for Prefix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Prefix::Bang => write!(f, "!"),
+            Prefix::Minus => write!(f, "-"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
@@ -75,6 +115,21 @@ pub enum Infix {
     Minus,
     Slash,
     Asterisk,
+}
+
+impl fmt::Display for Infix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Infix::Plus => write!(f, "+"),
+            Infix::Minus => write!(f, "-"),
+            Infix::Asterisk => write!(f, "*"),
+            Infix::Slash => write!(f, "/"),
+            Infix::Eq => write!(f, "=="),
+            Infix::NotEq => write!(f, "!="),
+            Infix::LT => write!(f, "<"),
+            Infix::GT => write!(f, ">"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
