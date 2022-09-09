@@ -11,7 +11,10 @@ fn main() {
                 let mut p = lib::parser::Parser::new(l);
                 let ast = match p.parse_program() {
                     Ok(p) => p,
-                    Err(e) => panic!("Error: {:?}", e),
+                    Err(e) => {
+                        eprintln!("Error: {:?}", e);
+                        continue
+                    }
                 };
                 println!("{:?}", ast);
             }
