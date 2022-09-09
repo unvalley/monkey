@@ -592,5 +592,45 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_function_parameter_parsing() {
+        struct FunctionalParameterTest {
+            input: String,
+            expected_params: Vec<String>
+        }
+        let tests = vec![
+            FunctionalParameterTest {
+                input: "fn() {}".to_string(),
+                expected_params: vec![]
+            },
+            FunctionalParameterTest {
+                input: "fn(x) {}".to_string(),
+                expected_params: vec!["x".to_string()],
+            },
+            FunctionalParameterTest {
+                input: "fn(x,y,z) {}".to_string(),
+                expected_params: vec!["x".to_string(), "y".to_string(), "z".to_string()],
+            }
+        ];
+        for test in tests {
+            let l = Lexer::new(test.input);
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            let stmt = &program.statements[0];
+            if let ast::Statement::Expression(expr) = stmt {
+                match expr {
+                    ast::Expression::Function { parameters, body } => {
+                        assert_eq!(parameters.len(), test.expected_params.len());
+                        for (idx, expected) in test.expected_params.iter().enumerate() {
+                            assert_eq!(format!("{}", parameters[idx]), *expected)
+                        }
+                    }
+                    _ => panic!(""),
+                }
+            } else {
+                panic!("")
+            }
+        }
+    }
 }
 
