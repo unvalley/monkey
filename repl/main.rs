@@ -8,8 +8,12 @@ fn main() {
         match line {
             Ok(line) => {
                 let mut l = lib::lexer::Lexer::new(line);
-                // let p = lib::parser::Parser::new(l);
-                l.next_token();
+                let mut p = lib::parser::Parser::new(l);
+                let ast = match p.parse_program() {
+                    Ok(p) => p,
+                    Err(e) => panic!("Error: {:?}", e),
+                };
+                println!("{:?}", ast);
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");

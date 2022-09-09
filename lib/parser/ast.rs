@@ -89,6 +89,10 @@ pub enum Expression {
         parameters: Vec<Expression>,
         body: Box<Statement>,
     },
+    Call {
+        function: Box<Expression>, // Identifier or Function
+        arguments: Vec<Expression>,
+    },
 }
 
 impl fmt::Display for Expression {
@@ -131,6 +135,21 @@ impl fmt::Display for Expression {
                         .collect::<Vec<_>>()
                         .join(","),
                     body
+                )
+            }
+            Expression::Call {
+                function,
+                arguments,
+            } => {
+                write!(
+                    f,
+                    "{}({})",
+                    function,
+                    arguments
+                        .iter()
+                        .map(|expr| format!("{}", &expr))
+                        .collect::<Vec<_>>()
+                        .join(",")
                 )
             }
         }

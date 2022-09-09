@@ -141,6 +141,10 @@ impl Parser {
                     self.next_token();
                     left_exp = self.parse_infix_expression(left_exp)?;
                 }
+                token::Token::LParen => {
+                    self.next_token();
+                    left_exp = self.parse_call_expression(left_exp)?;
+                }
                 // TODO: LParen
                 _ => return Ok(left_exp),
             }
@@ -231,7 +235,10 @@ impl Parser {
         // ) → {
         self.expect_peek(token::Token::LBrace)?;
         let body = self.parse_block_statement()?;
-        Ok(ast::Expression::Function { parameters, body: Box::new(body) })
+        Ok(ast::Expression::Function {
+            parameters,
+            body: Box::new(body),
+        })
     }
 
     fn parse_function_parameters(&mut self) -> Result<Vec<ast::Expression>, MonkeyError> {
@@ -240,8 +247,8 @@ impl Parser {
         let no_arguments = self.is_peek_token(token::Token::RParen);
         if no_arguments {
             self.next_token();
-            return Ok(identifiers)
-        } 
+            return Ok(identifiers);
+        }
 
         // handle argments
 
@@ -249,7 +256,7 @@ impl Parser {
         if let token::Token::Identifier(ident) = &self.current_token {
             identifiers.push(ast::Expression::Identifier(ident.to_owned()));
         } else {
-            return Err(MonkeyError::InvalidToken(self.current_token.clone()))
+            return Err(MonkeyError::InvalidToken(self.current_token.clone()));
         }
 
         while self.is_peek_token(token::Token::Comma) {
@@ -258,11 +265,42 @@ impl Parser {
             if let token::Token::Identifier(ident) = &self.current_token {
                 identifiers.push(ast::Expression::Identifier(ident.to_owned()));
             } else {
-                return Err(MonkeyError::InvalidToken(self.current_token.clone()))
+                return Err(MonkeyError::InvalidToken(self.current_token.clone()));
             }
         }
         self.expect_peek(token::Token::RParen)?;
         Ok(identifiers)
+    }
+
+    fn parse_call_expression(
+        &mut self,
+        function: ast::Expression,
+    ) -> Result<ast::Expression, MonkeyError> {
+        let arguments = self.parse_call_arguments()?;
+        let expr = ast::Expression::Call {
+            function: Box::new(function),
+            arguments,
+        };
+        Ok(expr)
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<ast::Expression>, MonkeyError> {
+        let mut arguments: Vec<ast::Expression> = Vec::new();
+        if self.is_peek_token(token::Token::RParen) {
+            self.next_token();
+            return Ok(arguments);
+        };
+        self.next_token();
+        arguments.push(self.parse_expression(ast::Precedence::Lowest)?);
+
+        while self.is_peek_token(token::Token::Comma) {
+            self.next_token();
+            self.next_token();
+            arguments.push(self.parse_expression(ast::Precedence::Lowest)?);
+        }
+
+        self.expect_peek(token::Token::RParen)?;
+        Ok(arguments)
     }
 
     fn parse_block_statement(&mut self) -> Result<ast::Statement, MonkeyError> {
@@ -277,7 +315,6 @@ impl Parser {
         }
         Ok(ast::Statement::Block(statements))
     }
-
 
     fn is_current_token(&mut self, token: token::Token) -> bool {
         self.current_token == token
@@ -314,29 +351,46 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        let input = "
-        let x = 5;
-        let y = 10;
-        let foobar = 838383;
-        ";
+        let tests = vec![
+            ("let x = 5;", "x", ast::Expression::Integer(5)),
+            ("let y = true;", "y", ast::Expression::Boolean(true)),
+            (
+                "let foobar = y;",
+                "foobar",
+                ast::Expression::Identifier("y".to_string()),
+            ),
+        ];
 
-        // doesn't mock lexer for readability
-        let l = Lexer::new(input.to_string());
-        let mut p = Parser::new(l);
-        let program = p.parse_program().unwrap();
-        assert_eq!(program.statements.len(), 3);
-        let expected_identifier = vec!["x", "y", "foobar"];
-        for (i, ident) in expected_identifier.iter().enumerate() {
-            let_statement(&program.statements[i], ident)
-        }
-    }
-
-    fn let_statement(stmt: &ast::Statement, name: &str) {
-        if let ast::Statement::Let { identifier, .. } = stmt {
-            if let ast::Expression::Identifier(identifier) = identifier {
-                assert_eq!(identifier, name)
-            } else {
-                panic!("expected ast::Statement::Let, but got {:?}", stmt);
+        for test in tests.iter() {
+            // doesn't mock lexer for readability
+            let l = Lexer::new(test.0.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program().unwrap();
+            assert_eq!(program.statements.len(), 1);
+            let stmt = &program.statements[0];
+            if let ast::Statement::Let { identifier, .. } = stmt {
+                if let ast::Expression::Identifier(identifier) = identifier {
+                    assert_eq!(identifier, test.1)
+                } else {
+                    panic!("expected ast::Statement::Let, but got {:?}", stmt);
+                }
+            }
+            if let ast::Statement::Let {
+                identifier: _,
+                value,
+            } = stmt
+            {
+                match value {
+                    ast::Expression::Integer(v) => assert_eq!(ast::Expression::Integer(*v), test.2),
+                    ast::Expression::Boolean(v) => assert_eq!(ast::Expression::Boolean(*v), test.2),
+                    ast::Expression::Identifier(v) => {
+                        assert_eq!(ast::Expression::Identifier(v.to_string()), test.2)
+                    }
+                    err_expr => panic!(
+                        "expected ast::Expression::(Integer|Boolean|Identifier), but got {:?}",
+                        err_expr
+                    ),
+                }
             }
         }
     }
@@ -527,6 +581,12 @@ mod tests {
             ("2/(5+5)", "(2/(5+5))"),
             ("-(5+5)", "(-(5+5))"),
             ("!(true==true)", "(!(true==true))"),
+            ("a+add(b*c)+d", "((a+add((b*c)))+d)"),
+            (
+                "add(a,b,1,2*3,4+5,add(6,7*8))",
+                "add(a,b,1,(2*3),(4+5),add(6,(7*8)))",
+            ),
+            ("add(a+b+c*d/f+g)", "add((((a+b)+((c*d)/f))+g))"),
         ];
         for (input, expected) in tests {
             let l = Lexer::new(input.to_string());
@@ -579,7 +639,11 @@ mod tests {
         assert_eq!(program.statements.len(), 1);
         let stmt = &program.statements[0];
         if let ast::Statement::Expression(expr) = stmt {
-            if let ast::Expression::Function { parameters, body: _ }  = expr {
+            if let ast::Expression::Function {
+                parameters,
+                body: _,
+            } = expr
+            {
                 assert_eq!(parameters.len(), 2);
                 assert_eq!(format!("{}", parameters[0]), "x");
                 assert_eq!(format!("{}", parameters[1]), "y");
@@ -596,12 +660,12 @@ mod tests {
     fn test_function_parameter_parsing() {
         struct FunctionalParameterTest {
             input: String,
-            expected_params: Vec<String>
+            expected_params: Vec<String>,
         }
         let tests = vec![
             FunctionalParameterTest {
                 input: "fn() {}".to_string(),
-                expected_params: vec![]
+                expected_params: vec![],
             },
             FunctionalParameterTest {
                 input: "fn(x) {}".to_string(),
@@ -610,7 +674,7 @@ mod tests {
             FunctionalParameterTest {
                 input: "fn(x,y,z) {}".to_string(),
                 expected_params: vec!["x".to_string(), "y".to_string(), "z".to_string()],
-            }
+            },
         ];
         for test in tests {
             let l = Lexer::new(test.input);
@@ -625,12 +689,35 @@ mod tests {
                             assert_eq!(format!("{}", parameters[idx]), *expected)
                         }
                     }
-                    _ => panic!(""),
+                    _ => panic!("Incorrect expression."),
                 }
             } else {
-                panic!("")
+                panic!("Incorrect statements.")
             }
         }
     }
-}
 
+    #[test]
+    fn test_call_expression_parameter_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5)".to_string();
+        let l = Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = &program.statements[0];
+        if let ast::Statement::Expression(expr) = stmt {
+            match expr {
+                ast::Expression::Call {
+                    function,
+                    arguments,
+                } => {
+                    assert_eq!(format!("{}", function), "add");
+                    assert_eq!(arguments.len(), 3);
+                }
+                _ => panic!("Incorrect expressions"),
+            }
+        } else {
+            panic!("Incorrect statements.")
+        }
+    }
+}
