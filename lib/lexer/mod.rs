@@ -1,7 +1,7 @@
 pub mod token;
 use crate::lexer::token::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lexer {
     input: String,
     /// current
@@ -76,7 +76,7 @@ impl Lexer {
                 } else {
                     Token::Assign
                 }
-            },
+            }
             b'+' => Token::Plus,
             b'-' => Token::Minus,
             b'!' => {
@@ -86,7 +86,7 @@ impl Lexer {
                 } else {
                     Token::Bang
                 }
-            },
+            }
             b'/' => Token::Slash,
             b'*' => Token::Asterisk,
             b'<' => Token::LT,
@@ -97,6 +97,7 @@ impl Lexer {
             b')' => Token::RParen,
             b'{' => Token::LBrace,
             b'}' => Token::RBrace,
+            0 => Token::EOF,
             _ => {
                 if self.is_letter(self.ch) {
                     let literal = self.read_identifier();
@@ -108,14 +109,14 @@ impl Lexer {
                         "return" => Token::Return,
                         "true" => Token::True,
                         "false" => Token::False,
-                        _ => Token::Ident(literal)
-                    }
+                        _ => Token::Identifier(literal),
+                    };
                 } else if self.is_digit(self.ch) {
                     let int = self.read_int();
-                    return Token::IntLiteral(int)
+                    return Token::IntLiteral(int);
                 }
                 Token::Illegal
-            },
+            }
         };
         self.read_char();
         tok
@@ -149,39 +150,39 @@ mod tests {
         ";
         let expected_tokens = vec![
             Token::Let,
-            Token::Ident(String::from("five")),
+            Token::Identifier(String::from("five")),
             Token::Assign,
             Token::IntLiteral(5),
             Token::SemiColon,
             Token::Let,
-            Token::Ident(String::from("ten")),
+            Token::Identifier(String::from("ten")),
             Token::Assign,
             Token::IntLiteral(10),
             Token::SemiColon,
             Token::Let,
-            Token::Ident(String::from("add")),
+            Token::Identifier(String::from("add")),
             Token::Assign,
             Token::Function,
             Token::LParen,
-            Token::Ident(String::from("x")),
+            Token::Identifier(String::from("x")),
             Token::Comma,
-            Token::Ident(String::from("y")),
+            Token::Identifier(String::from("y")),
             Token::RParen,
             Token::LBrace,
-            Token::Ident(String::from("x")),
+            Token::Identifier(String::from("x")),
             Token::Plus,
-            Token::Ident(String::from("y")),
+            Token::Identifier(String::from("y")),
             Token::SemiColon,
             Token::RBrace,
             Token::SemiColon,
             Token::Let,
-            Token::Ident(String::from("result")),
+            Token::Identifier(String::from("result")),
             Token::Assign,
-            Token::Ident(String::from("add")),
+            Token::Identifier(String::from("add")),
             Token::LParen,
-            Token::Ident(String::from("five")),
+            Token::Identifier(String::from("five")),
             Token::Comma,
-            Token::Ident(String::from("ten")),
+            Token::Identifier(String::from("ten")),
             Token::RParen,
             Token::SemiColon,
             Token::Bang,
@@ -195,7 +196,8 @@ mod tests {
             Token::IntLiteral(10),
             Token::GT,
             Token::IntLiteral(5),
-            Token::SemiColon
+            Token::SemiColon,
+            Token::EOF,
         ];
 
         let mut l = Lexer::new(input.to_string());
@@ -203,11 +205,9 @@ mod tests {
         for expected in expected_tokens {
             let actual = l.next_token();
             assert_eq!(
-                expected,
-                actual,
+                expected, actual,
                 "tests - token type wrong. expected={:?}, actual={:?}",
-                expected,
-                actual,
+                expected, actual,
             )
         }
     }

@@ -1,19 +1,26 @@
-#[derive(PartialEq, Debug, Clone)]
+use crate::parser::ast;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
     Illegal,
     EOF,
 
     // identifier and literal
-    Ident(String),
+    Identifier(String),
     StringLiteral(String),
     IntLiteral(i64),
     BoolLitral(bool),
-    // 
+    /// =
     Assign,
+    /// +
     Plus,
+    /// -
     Minus,
+    /// !
     Bang,
+    /// *
     Asterisk,
+    /// /
     Slash,
 
     /// <
@@ -22,8 +29,11 @@ pub enum Token {
     GT,
 
     // delimiter
+    /// ,
     Comma,
+    /// :
     Colon,
+    /// ;
     SemiColon,
 
     // punctuations
@@ -45,7 +55,24 @@ pub enum Token {
     Else,
 
     Eq,
-    NotEq
+    NotEq,
+}
+
+impl Token {
+    pub fn precedence(&self) -> ast::Precedence {
+        match self {
+            Token::Eq => ast::Precedence::Equals,
+            Token::NotEq => ast::Precedence::Equals,
+            Token::LT => ast::Precedence::LessGreater,
+            Token::GT => ast::Precedence::LessGreater,
+            Token::Plus => ast::Precedence::Sum,
+            Token::Minus => ast::Precedence::Sum,
+            Token::Asterisk => ast::Precedence::Product,
+            Token::Slash => ast::Precedence::Product,
+            Token::LParen => ast::Precedence::Call,
+            _ => ast::Precedence::Lowest,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

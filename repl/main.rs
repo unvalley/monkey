@@ -1,27 +1,34 @@
-use rustyline::{Editor, error::ReadlineError};
-
+use rustyline::{error::ReadlineError, Editor};
 
 fn main() {
     let mut rl = Editor::<()>::new().unwrap();
-    
+
     loop {
-        let line =  rl.readline(">> ");
+        let line = rl.readline(">> ");
         match line {
             Ok(line) => {
                 let mut l = lib::lexer::Lexer::new(line);
-                l.next_token();
-            },
+                let mut p = lib::parser::Parser::new(l);
+                let ast = match p.parse_program() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("Error: {:?}", e);
+                        continue
+                    }
+                };
+                println!("{:?}", ast);
+            }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
-                break
-            },
+                break;
+            }
             Err(ReadlineError::Eof) => {
                 println!("CTRL-D");
-                break
-            },
+                break;
+            }
             Err(err) => {
                 println!("Error: {:?}", err);
-                break
+                break;
             }
         }
     }
