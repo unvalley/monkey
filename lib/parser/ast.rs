@@ -44,6 +44,7 @@ pub enum Statement {
     },
     Return(Expression),
     Expression(Expression),
+    Block(Vec<Statement>),
 }
 
 impl fmt::Display for Statement {
@@ -54,6 +55,12 @@ impl fmt::Display for Statement {
             }
             Statement::Return(value) => write!(f, "return {:?};", value),
             Statement::Expression(value) => write!(f, "{:?};", value),
+            Statement::Block(statements) => {
+                for stmt in statements.iter() {
+                    write!(f, "{}", stmt)?
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -73,6 +80,15 @@ pub enum Expression {
         left: Box<Expression>,
     },
     Boolean(bool),
+    If {
+        condition: Box<Expression>,
+        consequence: Box<Statement>,
+        alternative: Option<Box<Statement>>,
+    },
+    Function {
+        parameters: Vec<Expression>,
+        body: Box<Statement>,
+    },
 }
 
 impl fmt::Display for Expression {
@@ -88,6 +104,35 @@ impl fmt::Display for Expression {
                 right,
             } => write!(f, "({}{}{})", left, operator, right),
             Expression::Boolean(value) => write!(f, "{}", value),
+            Expression::If {
+                condition,
+                consequence,
+                alternative,
+            } => match alternative {
+                Some(alternative) => write!(
+                    f,
+                    "if({}){{{}}}else{{{}}}",
+                    condition, consequence, alternative
+                ),
+                None => write!(f, "if({}){{{}}}", condition, consequence),
+            },
+            Expression::Function { parameters, body } => {
+                write!(
+                    f,
+                    "fn({}){{{}}}",
+                    parameters
+                        .iter()
+                        .map(|expr| -> &str {
+                            match expr {
+                                Expression::Identifier(ident) => ident,
+                                _ => unreachable!(),
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(","),
+                    body
+                )
+            }
         }
     }
 }

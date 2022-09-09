@@ -99,6 +99,9 @@ impl Parser {
             token::Token::False => ast::Expression::Boolean(false),
             token::Token::Bang => self.parse_prefix_expression()?,
             token::Token::Minus => self.parse_prefix_expression()?,
+            token::Token::LParen => self.parse_grouped_expression()?,
+            token::Token::If => self.parse_if_expression()?,
+            token::Token::Function => self.parse_function_expression()?,
             token => return Err(MonkeyError::InvalidToken(token.clone())),
         };
 
@@ -186,6 +189,95 @@ impl Parser {
             right: Box::new(right_expression),
         })
     }
+
+    fn parse_grouped_expression(&mut self) -> Result<ast::Expression, MonkeyError> {
+        self.next_token();
+        let expr = self.parse_expression(ast::Precedence::Lowest)?;
+        self.expect_peek(token::Token::RParen)?;
+        Ok(expr)
+    }
+
+    fn parse_if_expression(&mut self) -> Result<ast::Expression, MonkeyError> {
+        self.expect_peek(token::Token::LParen)?;
+        let condition = Box::new(self.parse_expression(ast::Precedence::Lowest)?);
+
+        if !self.is_current_token(token::Token::RParen) {
+            return Err(MonkeyError::UnexpectedToken {
+                expected: token::Token::RParen,
+                actual: self.current_token.clone(),
+            });
+        }
+        self.expect_peek(token::Token::LBrace)?;
+        let consequence = Box::new(self.parse_block_statement()?);
+        let alternative = if self.is_peek_token(token::Token::Else) {
+            self.next_token();
+            self.expect_peek(token::Token::LBrace)?;
+            let stmt = self.parse_block_statement()?;
+            Some(Box::new(stmt))
+        } else {
+            None
+        };
+
+        Ok(ast::Expression::If {
+            condition,
+            consequence,
+            alternative,
+        })
+    }
+
+    fn parse_function_expression(&mut self) -> Result<ast::Expression, MonkeyError> {
+        self.expect_peek(token::Token::LParen)?;
+        let parameters = self.parse_function_parameters()?;
+        // ) → {
+        self.expect_peek(token::Token::LBrace)?;
+        let body = self.parse_block_statement()?;
+        Ok(ast::Expression::Function { parameters, body: Box::new(body) })
+    }
+
+    fn parse_function_parameters(&mut self) -> Result<Vec<ast::Expression>, MonkeyError> {
+        let mut identifiers = vec![];
+
+        let no_arguments = self.is_peek_token(token::Token::RParen);
+        if no_arguments {
+            self.next_token();
+            return Ok(identifiers)
+        } 
+
+        // handle argments
+
+        self.next_token();
+        if let token::Token::Identifier(ident) = &self.current_token {
+            identifiers.push(ast::Expression::Identifier(ident.to_owned()));
+        } else {
+            return Err(MonkeyError::InvalidToken(self.current_token.clone()))
+        }
+
+        while self.is_peek_token(token::Token::Comma) {
+            self.next_token();
+            self.next_token();
+            if let token::Token::Identifier(ident) = &self.current_token {
+                identifiers.push(ast::Expression::Identifier(ident.to_owned()));
+            } else {
+                return Err(MonkeyError::InvalidToken(self.current_token.clone()))
+            }
+        }
+        self.expect_peek(token::Token::RParen)?;
+        Ok(identifiers)
+    }
+
+    fn parse_block_statement(&mut self) -> Result<ast::Statement, MonkeyError> {
+        self.next_token();
+        let mut statements: Vec<ast::Statement> = vec![];
+        while !self.is_current_token(token::Token::RBrace)
+            && !self.is_current_token(token::Token::EOF)
+        {
+            let stmt = self.parse_statement()?;
+            statements.push(stmt);
+            self.next_token();
+        }
+        Ok(ast::Statement::Block(statements))
+    }
+
 
     fn is_current_token(&mut self, token: token::Token) -> bool {
         self.current_token == token
@@ -425,16 +517,22 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_operator_precedence_parsing() {
-        let tests = vec![("-a*b", "((-a)*b)"), ("5+5*10", "(5+(5*10))")];
+        let tests = vec![
+            ("-a*b", "((-a)*b)"),
+            ("5+5*10", "(5+(5*10))"),
+            ("1+(2+3)+4", "((1+(2+3))+4)"),
+            ("(5+5)*2", "((5+5)*2)"),
+            ("2/(5+5)", "(2/(5+5))"),
+            ("-(5+5)", "(-(5+5))"),
+            ("!(true==true)", "(!(true==true))"),
+        ];
         for (input, expected) in tests {
             let l = Lexer::new(input.to_string());
             let mut p = Parser::new(l);
             let program = p.parse_program().unwrap();
             assert_eq!(program.statements.len(), 1);
-
             let stmt = &program.statements[0];
             if let ast::Statement::Expression(expr) = stmt {
                 assert_eq!(&format!("{}", &expr), expected);
@@ -443,4 +541,56 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x } else { y }";
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = &program.statements[0];
+        if let ast::Statement::Expression(expr) = stmt {
+            if let ast::Expression::If {
+                condition,
+                consequence,
+                alternative,
+            } = expr
+            {
+                assert_eq!(format!("{}", condition), "(x<y)");
+                // assert_eq!(format!("{}", consequence), "x");
+                // if let Some(alternative) = alternative {
+                //     assert_eq!(format!("{}", alternative), "y")
+                // }
+            } else {
+                panic!("Incorrect expression");
+            }
+        } else {
+            panic!("Incorrect statement");
+        }
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = "fn(x, y) { x + y }";
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = &program.statements[0];
+        if let ast::Statement::Expression(expr) = stmt {
+            if let ast::Expression::Function { parameters, body: _ }  = expr {
+                assert_eq!(parameters.len(), 2);
+                assert_eq!(format!("{}", parameters[0]), "x");
+                assert_eq!(format!("{}", parameters[1]), "y");
+                // TODO: body test
+            } else {
+                panic!("Incorrect expression")
+            }
+        } else {
+            panic!("Incorrect statement")
+        }
+    }
+
 }
+
