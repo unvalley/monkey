@@ -9,14 +9,23 @@ fn main() {
             Ok(line) => {
                 let mut l = lib::lexer::Lexer::new(line);
                 let mut p = lib::parser::Parser::new(l);
-                let ast = match p.parse_program() {
-                    Ok(p) => p,
+                match p.parse_program() {
+                    Ok(p) => {
+                        let mut eval = lib::eval::Evaluator::new();
+                        let evaluated = eval.evaluate(&p);
+                        match evaluated {
+                            Ok(eval) => println!("{}", eval),
+                            Err(e) => {
+                                eprintln!("Error: {:?}", e);
+                                continue;
+                            }
+                        }
+                    }
                     Err(e) => {
                         eprintln!("Error: {:?}", e);
-                        continue
+                        continue;
                     }
                 };
-                println!("{:?}", ast);
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
