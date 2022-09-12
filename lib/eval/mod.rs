@@ -58,7 +58,25 @@ impl Evaluator {
         match expr {
             ast::Expression::Integer(int) => Ok(Object::Integer(*int)),
             ast::Expression::Boolean(bool) => Ok(Object::Bool(*bool)),
+            ast::Expression::Prefix { operator, right } => {
+                let right = self.eval_expression(right)?; 
+                self.eval_prefix_expression(operator, right)
+            }
             _ => Err(MonkeyError::Unknown),
+        }
+    }
+
+    fn eval_prefix_expression(&mut self, operator: &ast::Prefix, right: Object) -> Result<Object, MonkeyError> {
+        match operator {
+            ast::Prefix::Bang => match right {
+                Object::Bool(value) => Ok(Object::Bool(!value)),
+                Object::Null => Ok(Object::Bool(true)),
+                _ => Ok(Object::Bool(false))
+            },
+            ast::Prefix::Minus => match right {
+                Object::Integer(int) => Ok(Object::Integer(-int)),
+                _ => Ok(Object::Null)
+            },
         }
     }
 }
@@ -98,5 +116,25 @@ mod tests {
         let program = p.parse_program().unwrap();
         let mut eval = Evaluator::new();
         eval.evaluate(&program).unwrap()
+    }
+
+    #[test]
+    fn test_bang_operator() {
+        let tests = [
+            ("!true", Object::Bool(false)),
+            ("!false", Object::Bool(true)),
+            ("!5", Object::Bool(false)),
+            ("!!true", Object::Bool(true)),
+            ("!!false", Object::Bool(false)),
+            ("!!5", Object::Bool(true)),
+            ("5", Object::Integer(5)),
+            ("10", Object::Integer(10)),
+            ("-5", Object::Integer(-5)),
+            ("-10", Object::Integer(-10)),
+        ];
+        for (input, expected) in tests {
+            let actual = generate_evaluator(input);
+            assert_eq!(actual, expected)
+        }
     }
 }
