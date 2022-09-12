@@ -7,7 +7,7 @@ fn main() {
         let line = rl.readline(">> ");
         match line {
             Ok(line) => {
-                let mut l = lib::lexer::Lexer::new(line);
+                let l = lib::lexer::Lexer::new(line);
                 let mut p = lib::parser::Parser::new(l);
                 match p.parse_program() {
                     Ok(p) => {

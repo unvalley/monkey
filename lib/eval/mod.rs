@@ -57,6 +57,7 @@ impl Evaluator {
     fn eval_expression(&mut self, expr: &ast::Expression) -> Result<Object, MonkeyError> {
         match expr {
             ast::Expression::Integer(int) => Ok(Object::Integer(*int)),
+            ast::Expression::Boolean(bool) => Ok(Object::Bool(*bool)),
             _ => Err(MonkeyError::Unknown),
         }
     }
@@ -78,7 +79,13 @@ mod tests {
 
     #[test]
     fn test_eval_expressions() {
-        let tests = [("5", Object::Integer(5)), ("10", Object::Integer(10))];
+        let tests = [
+            ("5", Object::Integer(5)),
+            ("10", Object::Integer(10)),
+            ("true", Object::Bool(true)),
+            ("false", Object::Bool(false)),
+        ];
+
         for (input, expected) in tests {
             let actual = generate_evaluator(input);
             assert_eq!(actual, expected)
