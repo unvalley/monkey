@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     error::MonkeyError,
-    parser::ast::{self, Expression},
+    parser::ast::{self, Expression, Statement},
 };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -31,6 +31,16 @@ impl fmt::Display for Object {
     }
 }
 
+impl Object {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Object::Null => false,
+            Object::Bool(value) => *value,
+            _ => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Evaluator {}
 
@@ -53,6 +63,7 @@ impl Evaluator {
     fn eval_statement(&mut self, stmt: &ast::Statement) -> Result<Object, MonkeyError> {
         match stmt {
             ast::Statement::Expression(expr) => self.eval_expression(expr),
+            ast::Statement::Block(stmts) => self.eval_block_statement(stmts),
             _ => Err(MonkeyError::Unknown),
         }
     }
@@ -74,8 +85,33 @@ impl Evaluator {
                 let left = self.eval_expression(left)?;
                 self.eval_infix_expression(operator, left, right)
             }
+            ast::Expression::If {
+                condition,
+                consequence,
+                alternative,
+            } => {
+                if self.eval_expression(condition)?.is_truthy() {
+                    self.eval_statement(consequence)
+                } else {
+                    match alternative {
+                        Some(alt) => self.eval_statement(alt),
+                        None => Ok(Object::Null),
+                    }
+                }
+            }
             _ => Err(MonkeyError::Unknown),
         }
+    }
+
+    fn eval_block_statement(&mut self, stmts: &Vec<Statement>) -> Result<Object, MonkeyError> {
+        let mut result = Object::Null;
+        for stmt in stmts.iter() {
+            result = self.eval_statement(stmt)?;
+            if let Object::Return(return_value) = result {
+                return Ok(*return_value);
+            }
+        }
+        Ok(result)
     }
 
     fn eval_infix_expression(
@@ -206,6 +242,24 @@ mod tests {
             ("1 == 2", Object::Bool(false)),
             ("1 != 2", Object::Bool(true)),
         ];
+        for (input, expected) in tests {
+            let actual = generate_evaluator(input);
+            assert_eq!(actual, expected)
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let tests = [
+            ("if (true) { 10 }", Object::Integer(10)),
+            ("if (false) { 10 }", Object::Null),
+            ("if (1) { 10 }", Object::Integer(10)),
+            ("if (1 < 2) { 10 }", Object::Integer(10)),
+            ("if (1 > 2) { 10 }", Object::Null),
+            ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
+            ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
+        ];
+
         for (input, expected) in tests {
             let actual = generate_evaluator(input);
             assert_eq!(actual, expected)

@@ -80,6 +80,11 @@ pub enum Expression {
         right: Box<Expression>,
     },
     Boolean(bool),
+    /// if ($condition) {
+    ///     $consequence
+    /// } else {
+    ///     $alternative
+    /// }
     If {
         condition: Box<Expression>,
         consequence: Box<Statement>,
