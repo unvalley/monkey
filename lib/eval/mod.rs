@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     error::MonkeyError,
-    parser::ast::{self, Expression, Statement},
+    parser::ast::{self, Statement},
 };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -64,6 +64,10 @@ impl Evaluator {
         match stmt {
             ast::Statement::Expression(expr) => self.eval_expression(expr),
             ast::Statement::Block(stmts) => self.eval_block_statement(stmts),
+            ast::Statement::Return(expr) => {
+                let obj = self.eval_expression(expr)?;
+                Ok(Object::Return(Box::new(obj)))
+            }
             _ => Err(MonkeyError::Unknown),
         }
     }
@@ -103,14 +107,16 @@ impl Evaluator {
         }
     }
 
-    fn eval_block_statement(&mut self, stmts: &Vec<Statement>) -> Result<Object, MonkeyError> {
+    fn eval_block_statement(&mut self, stmts: &[Statement]) -> Result<Object, MonkeyError> {
         let mut result = Object::Null;
         for stmt in stmts.iter() {
             result = self.eval_statement(stmt)?;
-            if let Object::Return(return_value) = result {
-                return Ok(*return_value);
+
+            if let Object::Return(_) = result {
+                return Ok(result);
             }
         }
+        // for block statement
         Ok(result)
     }
 
@@ -135,10 +141,21 @@ impl Evaluator {
                 ast::Infix::Eq => Ok(Object::Bool(left == right)),
                 ast::Infix::NotEq => Ok(Object::Bool(left != right)),
                 operator => Err(MonkeyError::UnknownOperator {
-                    expected: ObjectType::Bool,
-                    actual: *operator,
+                    left: ObjectType::Bool,
+                    operator: *operator,
+                    right: ObjectType::Bool,
                 }),
             },
+            (Object::Integer(_), Object::Bool(_)) => Err(MonkeyError::TypeMismatch {
+                operator: *operator,
+                left: ObjectType::Integer,
+                right: ObjectType::Bool,
+            }),
+            (Object::Bool(_), Object::Integer(_)) => Err(MonkeyError::TypeMismatch {
+                operator: *operator,
+                left: ObjectType::Bool,
+                right: ObjectType::Integer,
+            }),
             _ => Ok(Object::Null),
         }
     }
@@ -171,10 +188,36 @@ impl Default for Evaluator {
 #[cfg(test)]
 mod tests {
     use crate::{
-        eval::{Evaluator, Object},
+        error::MonkeyError,
+        eval::{Evaluator, Object, ObjectType},
         lexer::Lexer,
-        parser::Parser,
+        parser::{
+            ast::{self, Program},
+            Parser,
+        },
     };
+
+    fn generate_program(input: &str) -> Program {
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        program
+    }
+
+    fn evaluate_program(input: &str) -> Object {
+        let program = generate_program(input);
+        let mut eval = Evaluator::new();
+        eval.evaluate(&program).unwrap()
+    }
+
+    fn evaluate_error_program(input: &str) -> MonkeyError {
+        let program = generate_program(input);
+        let mut eval = Evaluator::new();
+        match eval.evaluate(&program) {
+            Ok(_) => panic!("Expected error."),
+            Err(err) => err,
+        }
+    }
 
     #[test]
     fn test_eval_expressions() {
@@ -208,17 +251,9 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let actual = generate_evaluator(input);
+            let actual = evaluate_program(input);
             assert_eq!(actual, expected)
         }
-    }
-
-    fn generate_evaluator(input: &str) -> Object {
-        let l = Lexer::new(input.to_string());
-        let mut p = Parser::new(l);
-        let program = p.parse_program().unwrap();
-        let mut eval = Evaluator::new();
-        eval.evaluate(&program).unwrap()
     }
 
     #[test]
@@ -243,7 +278,7 @@ mod tests {
             ("1 != 2", Object::Bool(true)),
         ];
         for (input, expected) in tests {
-            let actual = generate_evaluator(input);
+            let actual = evaluate_program(input);
             assert_eq!(actual, expected)
         }
     }
@@ -261,7 +296,58 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let actual = generate_evaluator(input);
+            let actual = evaluate_program(input);
+            assert_eq!(actual, expected)
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let tests = [
+            ("return 10;", Object::Integer(10)),
+            ("return 10; 9;", Object::Integer(10)),
+            ("return 2 * 5; 9;", Object::Integer(10)),
+            ("9; return 2 * 5; 9;", Object::Integer(10)),
+            (
+                "if (10 > 1) {
+                if (10 > 1) {
+                    return 10;
+                }
+                return 1;
+            }
+            ",
+                Object::Integer(10),
+            ),
+        ];
+
+        for (input, expected) in tests {
+            let actual = evaluate_program(input);
+            assert_eq!(actual, expected)
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests = [
+            (
+                "5 + true;",
+                MonkeyError::TypeMismatch {
+                    operator: ast::Infix::Plus,
+                    left: ObjectType::Integer,
+                    right: ObjectType::Bool,
+                },
+            ),
+            (
+                "5 + true; 5",
+                MonkeyError::TypeMismatch {
+                    operator: ast::Infix::Plus,
+                    left: ObjectType::Integer,
+                    right: ObjectType::Bool,
+                },
+            ),
+        ];
+        for (input, expected) in tests {
+            let actual = evaluate_error_program(input);
             assert_eq!(actual, expected)
         }
     }

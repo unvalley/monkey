@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::{eval, lexer::token, parser::ast};
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum MonkeyError {
     #[error("unexpected token")]
     UnexpectedToken {
@@ -19,7 +19,14 @@ pub enum MonkeyError {
     Unknown,
     #[error("unknown operator")]
     UnknownOperator {
-        expected: eval::ObjectType,
-        actual: ast::Infix,
+        operator: ast::Infix,
+        left: eval::ObjectType,
+        right: eval::ObjectType,
+    },
+    #[error("type mismatchh")]
+    TypeMismatch {
+        operator: ast::Infix,
+        left: eval::ObjectType,
+        right: eval::ObjectType,
     },
 }
