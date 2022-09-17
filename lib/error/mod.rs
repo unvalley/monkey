@@ -1,8 +1,6 @@
-use std::fmt::{self, write};
-
 use thiserror::Error;
 
-use crate::lexer::token;
+use crate::{eval, lexer::token, parser::ast};
 
 #[derive(Error, Debug)]
 pub enum MonkeyError {
@@ -19,4 +17,9 @@ pub enum MonkeyError {
     InvalidInteger,
     #[error("unknown error")]
     Unknown,
+    #[error("unknown operator")]
+    UnknownOperator {
+        expected: eval::ObjectType,
+        actual: ast::Infix,
+    },
 }

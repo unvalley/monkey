@@ -76,8 +76,8 @@ pub enum Expression {
     },
     Infix {
         operator: Infix,
-        right: Box<Expression>,
         left: Box<Expression>,
+        right: Box<Expression>,
     },
     Boolean(bool),
     If {
@@ -156,7 +156,7 @@ impl fmt::Display for Expression {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd, Copy)]
 pub enum Prefix {
     Bang,
     Minus,
@@ -171,7 +171,7 @@ impl fmt::Display for Prefix {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd, Copy)]
 pub enum Infix {
     Eq,
     NotEq,
@@ -198,7 +198,7 @@ impl fmt::Display for Infix {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash, Ord, PartialOrd, Copy)]
 pub enum Precedence {
     Lowest,
     /// == or !=

@@ -1,6 +1,9 @@
 use std::fmt;
 
-use crate::{error::MonkeyError, parser::ast};
+use crate::{
+    error::MonkeyError,
+    parser::ast::{self, Expression},
+};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ObjectType {
@@ -59,23 +62,65 @@ impl Evaluator {
             ast::Expression::Integer(int) => Ok(Object::Integer(*int)),
             ast::Expression::Boolean(bool) => Ok(Object::Bool(*bool)),
             ast::Expression::Prefix { operator, right } => {
-                let right = self.eval_expression(right)?; 
+                let right = self.eval_expression(right)?;
                 self.eval_prefix_expression(operator, right)
+            }
+            ast::Expression::Infix {
+                operator,
+                left,
+                right,
+            } => {
+                let right = self.eval_expression(right)?;
+                let left = self.eval_expression(left)?;
+                self.eval_infix_expression(operator, left, right)
             }
             _ => Err(MonkeyError::Unknown),
         }
     }
 
-    fn eval_prefix_expression(&mut self, operator: &ast::Prefix, right: Object) -> Result<Object, MonkeyError> {
+    fn eval_infix_expression(
+        &mut self,
+        operator: &ast::Infix,
+        left: Object,
+        right: Object,
+    ) -> Result<Object, MonkeyError> {
+        match (left, right) {
+            (Object::Integer(left), Object::Integer(right)) => match operator {
+                ast::Infix::Eq => Ok(Object::Bool(left == right)),
+                ast::Infix::NotEq => Ok(Object::Bool(left != right)),
+                ast::Infix::LT => Ok(Object::Bool(left < right)),
+                ast::Infix::GT => Ok(Object::Bool(left > right)),
+                ast::Infix::Plus => Ok(Object::Integer(left + right)),
+                ast::Infix::Minus => Ok(Object::Integer(left - right)),
+                ast::Infix::Slash => Ok(Object::Integer(left / right)),
+                ast::Infix::Asterisk => Ok(Object::Integer(left * right)),
+            },
+            (Object::Bool(left), Object::Bool(right)) => match operator {
+                ast::Infix::Eq => Ok(Object::Bool(left == right)),
+                ast::Infix::NotEq => Ok(Object::Bool(left != right)),
+                operator => Err(MonkeyError::UnknownOperator {
+                    expected: ObjectType::Bool,
+                    actual: *operator,
+                }),
+            },
+            _ => Ok(Object::Null),
+        }
+    }
+
+    fn eval_prefix_expression(
+        &mut self,
+        operator: &ast::Prefix,
+        right: Object,
+    ) -> Result<Object, MonkeyError> {
         match operator {
             ast::Prefix::Bang => match right {
                 Object::Bool(value) => Ok(Object::Bool(!value)),
                 Object::Null => Ok(Object::Bool(true)),
-                _ => Ok(Object::Bool(false))
+                _ => Ok(Object::Bool(false)),
             },
             ast::Prefix::Minus => match right {
                 Object::Integer(int) => Ok(Object::Integer(-int)),
-                _ => Ok(Object::Null)
+                _ => Ok(Object::Null),
             },
         }
     }
@@ -102,6 +147,28 @@ mod tests {
             ("10", Object::Integer(10)),
             ("true", Object::Bool(true)),
             ("false", Object::Bool(false)),
+            ("-5", Object::Integer(-5)),
+            ("-10", Object::Integer(-10)),
+            ("5 + 5 + 5 + 5 - 10", Object::Integer(10)),
+            ("2 * 2 * 2 * 2 * 2", Object::Integer(32)),
+            ("-50 + 100 + -50", Object::Integer(0)),
+            ("5 * 2 + 10", Object::Integer(20)),
+            ("5 + 2 * 10", Object::Integer(25)),
+            ("20 + 2 * -10", Object::Integer(0)),
+            ("50 / 2 * 2 + 10", Object::Integer(60)),
+            ("2 * (5 + 10)", Object::Integer(30)),
+            ("3 * 3 * 3 + 10", Object::Integer(37)),
+            ("3 * (3 * 3) + 10", Object::Integer(37)),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", Object::Integer(50)),
+            ("true == true", Object::Bool(true)),
+            ("false == false", Object::Bool(true)),
+            ("true == false", Object::Bool(false)),
+            ("true != false", Object::Bool(true)),
+            ("false != true", Object::Bool(true)),
+            ("(1 < 2) == true", Object::Bool(true)),
+            ("(1 < 2) == false", Object::Bool(false)),
+            ("(1 > 2) == true", Object::Bool(false)),
+            ("(1 > 2) == false", Object::Bool(true)),
         ];
 
         for (input, expected) in tests {
@@ -131,6 +198,13 @@ mod tests {
             ("10", Object::Integer(10)),
             ("-5", Object::Integer(-5)),
             ("-10", Object::Integer(-10)),
+            ("1 < 2", Object::Bool(true)),
+            ("1 > 2", Object::Bool(false)),
+            ("1 < 1", Object::Bool(false)),
+            ("1 > 1", Object::Bool(false)),
+            ("1 == 1", Object::Bool(true)),
+            ("1 == 2", Object::Bool(false)),
+            ("1 != 2", Object::Bool(true)),
         ];
         for (input, expected) in tests {
             let actual = generate_evaluator(input);
