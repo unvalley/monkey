@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::{eval, lexer::token, parser::ast};
+use crate::{eval::object, lexer::token, parser::ast};
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum MonkeyError {
@@ -13,6 +13,8 @@ pub enum MonkeyError {
     InvalidToken(token::Token),
     #[error("invalid identifier")]
     InvalidIdentifier,
+    #[error("identifier not found")]
+    IdentifierNotFound,
     #[error("invalid integer")]
     InvalidInteger,
     #[error("unknown error")]
@@ -20,13 +22,13 @@ pub enum MonkeyError {
     #[error("unknown operator")]
     UnknownOperator {
         operator: ast::Infix,
-        left: eval::ObjectType,
-        right: eval::ObjectType,
+        left: object::ObjectType,
+        right: object::ObjectType,
     },
     #[error("type mismatchh")]
     TypeMismatch {
         operator: ast::Infix,
-        left: eval::ObjectType,
-        right: eval::ObjectType,
+        left: object::ObjectType,
+        right: object::ObjectType,
     },
 }

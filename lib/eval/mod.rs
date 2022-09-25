@@ -1,52 +1,33 @@
-use std::fmt;
+use std::{cell::RefCell, rc::Rc};
 
+use crate::eval::object::{Object, ObjectType};
 use crate::{
     error::MonkeyError,
+    eval::environment::Environment,
     parser::ast::{self, Statement},
 };
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ObjectType {
-    Integer,
-    Bool,
-    Null,
-}
+pub mod environment;
+pub mod object;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Object {
-    Integer(i64),
-    Bool(bool),
-    Null,
-    Return(Box<Object>),
+pub struct Evaluator {
+    env: Rc<RefCell<Environment>>,
 }
-
-impl fmt::Display for Object {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Object::Integer(val) => write!(f, "{}", val),
-            Object::Bool(val) => write!(f, "{}", val),
-            Object::Return(val) => write!(f, "{}", val),
-            Object::Null => write!(f, "null"),
-        }
-    }
-}
-
-impl Object {
-    pub fn is_truthy(&self) -> bool {
-        match self {
-            Object::Null => false,
-            Object::Bool(value) => *value,
-            _ => true,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Evaluator {}
 
 impl Evaluator {
     pub fn new() -> Self {
-        Evaluator {}
+        Evaluator {
+            env: Rc::new(RefCell::new(Environment::new())),
+        }
+    }
+
+    pub fn get(&mut self, key: &str) -> Option<Object> {
+        self.env.borrow_mut().get(key)
+    }
+
+    pub fn set(&mut self, key: String, value: Object) -> Option<Object> {
+        self.env.borrow_mut().set(key, value)
     }
 
     pub fn evaluate(&mut self, program: &ast::Program) -> Result<Object, MonkeyError> {
@@ -67,6 +48,15 @@ impl Evaluator {
             ast::Statement::Return(expr) => {
                 let obj = self.eval_expression(expr)?;
                 Ok(Object::Return(Box::new(obj)))
+            }
+            ast::Statement::Let { identifier, value } => {
+                if let ast::Expression::Identifier(ident) = identifier {
+                    let val = self.eval_expression(value)?;
+                    self.set(ident.to_owned(), val);
+                    Ok(Object::Null)
+                } else {
+                    panic!("panic at let statement evaluation")
+                }
             }
             _ => Err(MonkeyError::Unknown),
         }
@@ -103,6 +93,10 @@ impl Evaluator {
                     }
                 }
             }
+            ast::Expression::Identifier(ident) => match self.get(ident) {
+                Some(val) => Ok(val),
+                None => Err(MonkeyError::IdentifierNotFound),
+            },
             _ => Err(MonkeyError::Unknown),
         }
     }
@@ -302,6 +296,23 @@ mod tests {
     }
 
     #[test]
+    fn test_let_statements() {
+        let tests = [
+            ("let a = 5; a;", Object::Integer(5)),
+            ("let a = 5 * 5; a;", Object::Integer(25)),
+            ("let a = 5; let b = a; b;", Object::Integer(5)),
+            (
+                "let a = 5; let b = a; let c = a + b + 5; c;",
+                Object::Integer(15),
+            ),
+        ];
+        for (input, expected) in tests {
+            let actual = evaluate_program(input);
+            assert_eq!(actual, expected)
+        }
+    }
+
+    #[test]
     fn test_return_statements() {
         let tests = [
             ("return 10;", Object::Integer(10)),
@@ -345,6 +356,7 @@ mod tests {
                     right: ObjectType::Bool,
                 },
             ),
+            ("foobar", MonkeyError::IdentifierNotFound),
         ];
         for (input, expected) in tests {
             let actual = evaluate_error_program(input);
