@@ -12,6 +12,7 @@ pub mod object;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Evaluator {
+    // Why do we need Rc & Refcell ?
     env: Rc<RefCell<Environment>>,
 }
 
@@ -19,6 +20,12 @@ impl Evaluator {
     pub fn new() -> Self {
         Evaluator {
             env: Rc::new(RefCell::new(Environment::new())),
+        }
+    }
+
+    pub fn from_env(env: Environment) -> Self {
+        Evaluator {
+            env: Rc::new(RefCell::new(env.to_owned())),
         }
     }
 
@@ -97,7 +104,62 @@ impl Evaluator {
                 Some(val) => Ok(val),
                 None => Err(MonkeyError::IdentifierNotFound),
             },
+            ast::Expression::Function { parameters, body } => Ok(Object::Function {
+                parameters: parameters.clone(),
+                body: *body.clone(),
+                env: Environment::new_enclosed(Rc::clone(&self.env)),
+            }),
+            ast::Expression::Call {
+                function,
+                arguments,
+            } => {
+                let args = self.eval_expressions(arguments)?;
+                let function = self.eval_expression(function)?;
+                // We have to evaluate inside of function.
+
+                self.apply_function(function, args)
+            }
             _ => Err(MonkeyError::Unknown),
+        }
+    }
+
+    fn eval_expressions(&mut self, exprs: &[ast::Expression]) -> Result<Vec<Object>, MonkeyError> {
+        let mut result = vec![];
+        for expr in exprs.iter() {
+            result.push(self.eval_expression(expr)?)
+        }
+        Ok(result)
+    }
+
+    fn apply_function(
+        &mut self,
+        function: Object,
+        args: Vec<Object>,
+    ) -> Result<Object, MonkeyError> {
+        if let Object::Function {
+            parameters,
+            body,
+            env,
+        } = function
+        {
+            if parameters.len() != args.len() {
+                return Err(MonkeyError::IncorrectNumberOfArguments {
+                    expected: args.len(),
+                    actual: parameters.len(),
+                });
+            }
+            let mut evaluator = Evaluator::from_env(env);
+            for (ident, arg) in parameters.iter().zip(args.iter()) {
+                if let ast::Expression::Identifier(ident) = ident {
+                    evaluator.set(ident.to_owned(), arg.clone());
+                }
+            }
+            match evaluator.eval_statement(&body)? {
+                Object::Return(obj) => Ok(*obj),
+                obj => Ok(obj),
+            }
+        } else {
+            Err(MonkeyError::Unknown)
         }
     }
 
@@ -183,10 +245,10 @@ impl Default for Evaluator {
 mod tests {
     use crate::{
         error::MonkeyError,
-        eval::{Evaluator, Object, ObjectType},
+        eval::{environment::Environment, Evaluator, Object, ObjectType},
         lexer::Lexer,
         parser::{
-            ast::{self, Program},
+            ast::{self, Expression, Program},
             Parser,
         },
     };
@@ -361,6 +423,57 @@ mod tests {
         for (input, expected) in tests {
             let actual = evaluate_error_program(input);
             assert_eq!(actual, expected)
+        }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let tests = [("fn(x) { x + 2;};")];
+        for input in tests {
+            let actual = evaluate_program(input);
+            if let Object::Function {
+                parameters,
+                body,
+                env,
+            } = actual
+            {
+                assert_eq!(parameters.len(), 1);
+                assert_eq!(format!("{}", parameters[0]), "x".to_string());
+                // assert_eq!(format!("{}", body), "(x + 2)".to_string())
+            }
+        }
+    }
+
+    #[test]
+    fn test_function_application() {
+        let tests = [
+            (
+                "let identity = fn(x) {x;}; identity(5);",
+                Object::Integer(5),
+            ),
+            (
+                "let identity = fn(x) { return x; }; identity(5);",
+                Object::Integer(5),
+            ),
+            (
+                "let double = fn(x) {x * 2}; double(5);",
+                Object::Integer(10),
+            ),
+            (
+                "let double = fn(x) {x * 2}; double(5);",
+                Object::Integer(10),
+            ),
+            ("let add = fn(x,y) {x + y}; add(5, 5);", Object::Integer(10)),
+            (
+                "let add = fn(x,y) {x + y}; add(5+5, add(5,5));",
+                Object::Integer(20),
+            ),
+            ("fn(x) {x;}(5)", Object::Integer(5)),
+        ];
+
+        for (input, expected) in tests {
+            let actual = evaluate_program(input);
+            assert_eq!(actual, expected);
         }
     }
 }

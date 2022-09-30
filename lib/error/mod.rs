@@ -31,4 +31,6 @@ pub enum MonkeyError {
         left: object::ObjectType,
         right: object::ObjectType,
     },
+    #[error("incorrect number of arguments")]
+    IncorrectNumberOfArguments { expected: usize, actual: usize },
 }
