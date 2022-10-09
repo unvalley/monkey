@@ -59,6 +59,18 @@ impl Lexer {
         self.input[position..self.position].to_string()
     }
 
+    fn read_string(&mut self) -> Token {
+        let position = self.position + 1;
+        loop {
+            self.read_char();
+            if self.ch == b'"' || self.ch == 0 {
+                break
+            }
+        }
+        let string = self.input[position..self.position].to_string();
+        Token::StringLiteral(string)
+    }
+
     fn skip_whitespace(&mut self) {
         while let b' ' | b'\t' | b'\n' | b'\r' = self.ch {
             self.read_char()
@@ -97,6 +109,7 @@ impl Lexer {
             b')' => Token::RParen,
             b'{' => Token::LBrace,
             b'}' => Token::RBrace,
+            b'"' => self.read_string(),
             0 => Token::EOF,
             _ => {
                 if self.is_letter(self.ch) {
@@ -130,6 +143,7 @@ impl Lexer {
             self.input.as_bytes()[self.read_position]
         }
     }
+
 }
 
 #[cfg(test)]
@@ -138,7 +152,7 @@ mod tests {
 
     #[test]
     fn next_token() {
-        let input = "let five = 5;
+        let input = r#"let five = 5;
         let ten = 10;
 
         let add = fn(x, y) {
@@ -147,7 +161,9 @@ mod tests {
         let result = add(five, ten);
         !-/*5;
         5 < 10 > 5;
-        ";
+        "foobar"
+        "foo bar"
+        "#;
         let expected_tokens = vec![
             Token::Let,
             Token::Identifier(String::from("five")),
@@ -197,6 +213,8 @@ mod tests {
             Token::GT,
             Token::IntLiteral(5),
             Token::SemiColon,
+            Token::StringLiteral(String::from("foobar")),
+            Token::StringLiteral(String::from("foo bar")),
             Token::EOF,
         ];
 
