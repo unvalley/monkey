@@ -12,6 +12,7 @@ pub enum ObjectType {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Object {
     Integer(i64),
+    String(String),
     Bool(bool),
     Null,
     Return(Box<Object>),
@@ -26,6 +27,7 @@ impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Object::Integer(val) => write!(f, "{}", val),
+            Object::String(val) => write!(f, "{}", val),
             Object::Bool(val) => write!(f, "{}", val),
             Object::Return(val) => write!(f, "{}", val),
             Object::Null => write!(f, "null"),

@@ -72,6 +72,7 @@ impl Evaluator {
     fn eval_expression(&mut self, expr: &ast::Expression) -> Result<Object, MonkeyError> {
         match expr {
             ast::Expression::Integer(int) => Ok(Object::Integer(*int)),
+            ast::Expression::String(str) => Ok(Object::String(str.to_owned())),
             ast::Expression::Boolean(bool) => Ok(Object::Bool(*bool)),
             ast::Expression::Prefix { operator, right } => {
                 let right = self.eval_expression(right)?;
@@ -332,6 +333,7 @@ mod tests {
             ("1 == 1", Object::Bool(true)),
             ("1 == 2", Object::Bool(false)),
             ("1 != 2", Object::Bool(true)),
+            (r#""Hello World!""#, Object::String("Hello World!".to_string()))
         ];
         for (input, expected) in tests {
             let actual = evaluate_program(input);

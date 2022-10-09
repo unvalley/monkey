@@ -11,7 +11,6 @@ pub struct Parser {
     current_token: token::Token,
     peek_token: token::Token,
 }
-
 impl Parser {
     pub fn new(l: Lexer) -> Parser {
         let mut p = Parser {
@@ -717,7 +716,27 @@ mod tests {
                 _ => panic!("Incorrect expressions"),
             }
         } else {
-            panic!("Incorrect statements.")
+            panic!("Incorrect statements")
+        }
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let input = r#""hello world""#.to_string();
+        let l = Lexer::new(input.clone());
+        let mut p = Parser::new(l);
+        let program = p.parse_program().unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = &program.statements[0];
+        if let ast::Statement::Expression(expr) = stmt {
+            match expr {
+                ast::Expression::String(str) => {
+                    assert_eq!("hello world", str)
+                },
+                _ => panic!("Incorrect expressions")
+            }
+        } else {
+            panic!("Incorrect statements")
         }
     }
 }
